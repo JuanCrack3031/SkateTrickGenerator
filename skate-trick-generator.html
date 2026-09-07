@@ -1,0 +1,927 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Skate Trick Generator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+
+<!-- React + ReactDOM (UMD) -->
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<!-- Babel standalone: permite escribir JSX directamente en el navegador, sin paso de build -->
+<script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin></script>
+
+<style>
+  :root {
+    --bg: #111110;
+    --bg-card: #1a1a19;
+    --bg-card-hover: #202020;
+    --bg-card-selected: #23200f;
+    --border: #333230;
+    --border-light: #45443f;
+    --yellow: #ffd400;
+    --yellow-dim: #cfae00;
+    --red: #ff4d3d;
+    --text: #f2f0ea;
+    --text-dim: #9a988f;
+    --text-faint: #6b6a63;
+    --radius: 14px;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+  }
+
+  .app-shell {
+    min-height: 100vh;
+    background:
+      repeating-linear-gradient(135deg, rgba(255,255,255,0.015) 0px, rgba(255,255,255,0.015) 1px, transparent 1px, transparent 5px),
+      var(--bg);
+    color: var(--text);
+    font-family: 'Space Grotesk', sans-serif;
+    padding: 20px 20px 60px;
+  }
+
+  .container { max-width: 1180px; margin: 0 auto; }
+
+  /* ---------- HEADER ---------- */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding-bottom: 22px;
+    border-bottom: 2px solid var(--border);
+    margin-bottom: 26px;
+    flex-wrap: wrap;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand h1 {
+    font-family: 'Anton', sans-serif;
+    font-size: 28px;
+    letter-spacing: 0.5px;
+    margin: 0;
+    line-height: 1;
+    text-transform: uppercase;
+  }
+  .brand h1 span { color: var(--yellow); }
+  .brand small {
+    display: block;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--text-faint);
+    letter-spacing: 1.5px;
+    margin-top: 4px;
+  }
+
+  /* ---------- LAYOUT ---------- */
+  .layout {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 24px;
+    align-items: start;
+  }
+  @media (max-width: 880px) {
+    .layout { grid-template-columns: 1fr; }
+  }
+
+  section.block { margin-bottom: 28px; }
+  .block-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 2px;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .block-title::before { content: ''; width: 8px; height: 8px; background: var(--yellow); }
+
+  /* ---------- CATEGORY CARDS ---------- */
+  .category-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+  }
+  .category-card {
+    position: relative;
+    background: var(--bg-card);
+    border: 2px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 14px;
+    cursor: pointer;
+    text-align: left;
+    color: var(--text);
+    transition: border-color 0.15s ease, background 0.15s ease, transform 0.1s ease;
+    font-family: inherit;
+    width: 100%;
+  }
+  .category-card:hover { background: var(--bg-card-hover); border-color: var(--border-light); }
+  .category-card:active { transform: scale(0.98); }
+  .category-card.selected {
+    background: var(--bg-card-selected);
+    border-color: var(--yellow);
+    box-shadow: inset 0 0 0 1px var(--yellow);
+  }
+  .category-card .glyph { color: var(--text-dim); margin-bottom: 10px; }
+  .category-card.selected .glyph { color: var(--yellow); }
+  .category-card .name { font-weight: 700; font-size: 15px; text-transform: uppercase; letter-spacing: 0.3px; }
+  .category-card .sub { font-size: 12px; color: var(--text-faint); margin-top: 3px; }
+  .category-card .count { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--text-faint); margin-top: 8px; }
+  .check-badge {
+    position: absolute; top: 10px; right: 10px;
+    width: 20px; height: 20px; border-radius: 50%;
+    background: var(--yellow); color: #111;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  /* ---------- ADD TRICK ---------- */
+  .add-trick-toggle {
+    margin-top: 10px;
+    background: none;
+    border: 1px dashed var(--border-light);
+    color: var(--text-dim);
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    border-radius: 8px;
+    padding: 6px 10px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .add-trick-toggle:hover { color: var(--yellow); border-color: var(--yellow); }
+  .add-trick-form {
+    margin-top: 10px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .add-trick-form input, .add-trick-form select {
+    background: #111;
+    border: 1px solid var(--border-light);
+    color: var(--text);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 13px;
+    width: 100%;
+  }
+  .add-trick-form .row { display: flex; gap: 8px; }
+  .add-trick-form .actions { display: flex; gap: 8px; margin-top: 2px; }
+  .btn-small { border: none; border-radius: 6px; padding: 7px 12px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: 'Space Grotesk', sans-serif; }
+  .btn-small.confirm { background: var(--yellow); color: #111; }
+  .btn-small.cancel { background: transparent; color: var(--text-dim); border: 1px solid var(--border-light); }
+
+  .custom-trick-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--text-faint);
+    background: #111;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 3px 6px;
+    margin: 3px 4px 0 0;
+  }
+  .custom-trick-tag button { background: none; border: none; color: var(--red); cursor: pointer; display: flex; }
+
+  /* ---------- DIFFICULTY ---------- */
+  .difficulty-row { display: flex; gap: 12px; flex-wrap: wrap; }
+  .difficulty-pill {
+    flex: 1;
+    min-width: 140px;
+    background: var(--bg-card);
+    border: 2px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    cursor: pointer;
+    color: var(--text);
+    text-align: left;
+    font-family: inherit;
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+  .difficulty-pill:hover { border-color: var(--border-light); }
+  .difficulty-pill.selected { border-color: var(--yellow); background: var(--bg-card-selected); }
+  .difficulty-pill .d-label { font-weight: 700; letter-spacing: 1px; font-size: 14px; }
+  .difficulty-pill.selected .d-label { color: var(--yellow); }
+  .difficulty-pill .d-sub { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--text-faint); margin-top: 3px; }
+
+  /* ---------- GENERATE ---------- */
+  .generate-wrap { text-align: center; margin: 30px 0 10px; }
+  .generate-btn {
+    background: var(--yellow);
+    color: #111;
+    border: none;
+    font-family: 'Anton', sans-serif;
+    font-size: 22px;
+    letter-spacing: 1.5px;
+    padding: 20px 60px;
+    border-radius: 999px;
+    cursor: pointer;
+    text-transform: uppercase;
+    box-shadow: 0 6px 0 var(--yellow-dim);
+    transition: transform 0.08s ease, box-shadow 0.08s ease;
+  }
+  .generate-btn:hover { transform: translateY(-2px); }
+  .generate-btn:active { transform: translateY(3px); box-shadow: 0 2px 0 var(--yellow-dim); }
+  .error-text {
+    color: var(--red);
+    font-family: 'Space Mono', monospace;
+    font-size: 12.5px;
+    margin-top: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+
+  /* ---------- TICKET RESULTADO ---------- */
+  @keyframes stampIn {
+    0% { opacity: 0; transform: scale(0.85) rotate(-5deg); }
+    55% { opacity: 1; transform: scale(1.04) rotate(1.5deg); }
+    100% { opacity: 1; transform: scale(1) rotate(-1deg); }
+  }
+  .trick-ticket {
+    margin-top: 28px;
+    background: var(--bg-card);
+    border: 2px dashed var(--border-light);
+    border-radius: 10px;
+    padding: 26px 22px;
+    position: relative;
+    transform: rotate(-1deg);
+  }
+  .trick-ticket.pop { animation: stampIn 0.5s ease-out; }
+  .trick-ticket .ticket-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--text-faint);
+    letter-spacing: 1px;
+    margin-bottom: 16px;
+    text-transform: uppercase;
+  }
+  .ticket-difficulty { color: var(--yellow); font-weight: 700; }
+  .combo-line {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    font-family: 'Anton', sans-serif;
+    font-size: clamp(22px, 4vw, 34px);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    line-height: 1.15;
+  }
+  .combo-line .arrow { color: var(--yellow); font-size: 0.7em; }
+  .combo-line .trick-cat {
+    display: block;
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--text-faint);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+  .empty-ticket {
+    margin-top: 28px;
+    border: 2px dashed var(--border);
+    border-radius: 10px;
+    padding: 36px 20px;
+    text-align: center;
+    color: var(--text-faint);
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+  }
+
+  /* ---------- HISTORY PANEL ---------- */
+  .history-panel {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px;
+    position: sticky;
+    top: 20px;
+    max-height: 82vh;
+    display: flex;
+    flex-direction: column;
+  }
+  .history-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 14px; }
+  .history-header h2 { font-family: 'Anton', sans-serif; font-size: 16px; letter-spacing: 1px; margin: 0; text-transform: uppercase; }
+  .history-count { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--text-faint); }
+  .history-list { overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 8px; padding-right: 2px; }
+  .history-empty { color: var(--text-faint); font-size: 12.5px; font-family: 'Space Mono', monospace; padding: 20px 4px; text-align: center; }
+  @keyframes popIn {
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .history-item {
+    background: #111;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 8px;
+    animation: popIn 0.25s ease-out;
+  }
+  .history-item .h-text { font-size: 12.5px; line-height: 1.4; }
+  .history-item .h-combo { font-weight: 600; }
+  .history-item .h-meta { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--text-faint); margin-top: 3px; text-transform: uppercase; }
+  .history-item button.del { background: none; border: none; color: var(--text-faint); cursor: pointer; flex-shrink: 0; padding: 2px; }
+  .history-item button.del:hover { color: var(--red); }
+
+  .clear-history-btn {
+    margin-top: 14px;
+    width: 100%;
+    background: transparent;
+    border: 1.5px solid var(--red);
+    color: var(--red);
+    font-weight: 700;
+    font-size: 12.5px;
+    letter-spacing: 1px;
+    padding: 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+  .clear-history-btn:hover { background: var(--red); color: #111; }
+  .clear-history-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .clear-history-btn:disabled:hover { background: transparent; color: var(--red); }
+
+  /* ---------- MODAL ---------- */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.65);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 50; padding: 20px;
+  }
+  .modal-box {
+    background: var(--bg-card);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius);
+    padding: 24px;
+    max-width: 340px;
+    width: 100%;
+    text-align: center;
+  }
+  .modal-box .icon-wrap {
+    width: 44px; height: 44px; border-radius: 50%;
+    background: rgba(255,77,61,0.12); color: var(--red);
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 14px;
+  }
+  .modal-box h3 { font-family: 'Anton', sans-serif; font-size: 17px; margin: 0 0 8px; text-transform: uppercase; }
+  .modal-box p { font-size: 13px; color: var(--text-dim); margin: 0 0 20px; }
+  .modal-actions { display: flex; gap: 10px; }
+  .modal-actions button { flex: 1; padding: 11px; border-radius: 8px; font-weight: 700; font-size: 13px; cursor: pointer; border: none; }
+  .modal-actions .btn-cancel { background: transparent; border: 1px solid var(--border-light); color: var(--text); }
+  .modal-actions .btn-danger { background: var(--red); color: #111; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState } = React;
+
+/* ------------------------------------------------------------------ */
+/* ICONOS — sustituyen a lucide-react (aquí en SVG puro, sin librería) */
+/* ------------------------------------------------------------------ */
+function IconCheck({ size = 16, strokeWidth = 2.5 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+function IconX({ size = 16, strokeWidth = 2.5 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+function IconTrash({ size = 16, strokeWidth = 2.2 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16Z" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+function IconPlus({ size = 16, strokeWidth = 2.5 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" />
+    </svg>
+  );
+}
+function IconAlert({ size = 16, strokeWidth = 2.2 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
+      <line x1="12" y1="9" x2="12" y2="13" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" />
+      <line x1="12" y1="17" x2="12.01" y2="17" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* DATA — fácil de ampliar: añade objetos { id, name, difficulty }     */
+/* difficulty: 1 = fácil, 2 = medio, 3 = difícil                      */
+/* ------------------------------------------------------------------ */
+const INITIAL_TRICK_DATA = {
+  flatground: {
+    label: "Flatground",
+    sub: "Trucos de suelo",
+    tricks: [
+      { id: "fg-1", name: "Ollie", difficulty: 1 },
+      { id: "fg-2", name: "Nollie", difficulty: 1 },
+      { id: "fg-3", name: "Fakie Ollie", difficulty: 1 },
+      { id: "fg-4", name: "Shove-it", difficulty: 1 },
+      { id: "fg-5", name: "Pop Shove-it", difficulty: 2 },
+      { id: "fg-6", name: "Frontside 180", difficulty: 2 },
+      { id: "fg-7", name: "Backside 180", difficulty: 2 },
+      { id: "fg-8", name: "Frontside Shove-it", difficulty: 2 },
+      { id: "fg-9", name: "Backside Shove-it", difficulty: 2 },
+    ],
+  },
+  flips: {
+    label: "Flip Tricks",
+    sub: "Rotaciones de tabla",
+    tricks: [
+      { id: "fl-1", name: "Kickflip", difficulty: 2 },
+      { id: "fl-2", name: "Heelflip", difficulty: 2 },
+      { id: "fl-3", name: "Varial Flip", difficulty: 2 },
+      { id: "fl-4", name: "Hardflip", difficulty: 3 },
+      { id: "fl-5", name: "360 Flip", difficulty: 3 },
+      { id: "fl-6", name: "Impossible", difficulty: 3 },
+    ],
+  },
+  grinds: {
+    label: "Grinds",
+    sub: "Ejes sobre rail / bordillo",
+    tricks: [
+      { id: "gr-1", name: "50-50", difficulty: 1 },
+      { id: "gr-2", name: "5-0", difficulty: 2 },
+      { id: "gr-3", name: "Nosegrind", difficulty: 2 },
+      { id: "gr-4", name: "Boardslide Grind", difficulty: 2 },
+      { id: "gr-5", name: "Smith Grind", difficulty: 3 },
+      { id: "gr-6", name: "Feeble Grind", difficulty: 3 },
+      { id: "gr-7", name: "Crooked Grind", difficulty: 3 },
+    ],
+  },
+  slides: {
+    label: "Slides",
+    sub: "Tabla sobre rail / bordillo",
+    tricks: [
+      { id: "sl-1", name: "Boardslide", difficulty: 1 },
+      { id: "sl-2", name: "Noseslide", difficulty: 2 },
+      { id: "sl-3", name: "Tailslide", difficulty: 2 },
+      { id: "sl-4", name: "Lipslide", difficulty: 2 },
+      { id: "sl-5", name: "Bluntslide", difficulty: 3 },
+    ],
+  },
+};
+
+const CATEGORY_ORDER = ["flatground", "flips", "grinds", "slides"];
+const OBSTACLE_CATEGORIES = ["grinds", "slides"];
+const SETUP_CATEGORIES = ["flatground", "flips"];
+
+const DIFFICULTY_CONFIG = {
+  easy: { label: "FÁCIL", sub: "78A · Warm-up", components: 1, maxTier: 1 },
+  medium: { label: "MEDIO", sub: "95A · Standard", components: 2, maxTier: 2 },
+  hard: { label: "DIFÍCIL", sub: "101A · Técnico", components: 3, maxTier: 3 },
+};
+
+const RECENT_POOL_SIZE = 8; // nº de trucos "enfriados" tras usarse
+
+/* ------------------------------------------------------------------ */
+/* HELPERS de generación controlada por reglas                        */
+/* ------------------------------------------------------------------ */
+function getPool(tricks, maxTier) {
+  const filtered = tricks.filter((t) => t.difficulty <= maxTier);
+  return filtered.length > 0 ? filtered : tricks;
+}
+
+function pickTrick(pool, excludeIds) {
+  let available = pool.filter((t) => !excludeIds.has(t.id));
+  if (available.length === 0) available = pool; // se agotó el pool -> reinicia enfriamiento local
+  if (available.length === 0) return null;
+  return available[Math.floor(Math.random() * available.length)];
+}
+
+function buildCombo(trickData, selectedCategories, difficulty, recentIds) {
+  const cfg = DIFFICULTY_CONFIG[difficulty];
+  const obstacleCats = selectedCategories.filter((c) => OBSTACLE_CATEGORIES.includes(c));
+  const setupCats = selectedCategories.filter((c) => SETUP_CATEGORIES.includes(c));
+  const cooldown = new Set(recentIds);
+  const usedThisCombo = new Set();
+  const comboSetup = [];
+  let obstacleTrick = null;
+
+  // Regla 1: como máximo UN truco de obstáculo (grind O slide) por combo,
+  // nunca los dos a la vez -> evita combinaciones físicamente imposibles.
+  if (obstacleCats.length > 0) {
+    const chosenCat = obstacleCats[Math.floor(Math.random() * obstacleCats.length)];
+    const pool = getPool(trickData[chosenCat].tricks, cfg.maxTier);
+    const excl = new Set([...cooldown, ...usedThisCombo]);
+    const trick = pickTrick(pool, excl);
+    if (trick) {
+      usedThisCombo.add(trick.id);
+      obstacleTrick = { ...trick, category: chosenCat };
+    }
+  }
+
+  // Regla 2: los trucos de "entrada" (flatground / flip) se encadenan
+  // antes del truco de obstáculo, nunca se repite el mismo truco en el combo.
+  const setupNeeded = cfg.components - (obstacleTrick ? 1 : 0);
+  if (setupCats.length > 0) {
+    for (let i = 0; i < setupNeeded; i++) {
+      const chosenCat = setupCats[Math.floor(Math.random() * setupCats.length)];
+      const pool = getPool(trickData[chosenCat].tricks, cfg.maxTier);
+      const excl = new Set([...cooldown, ...usedThisCombo]);
+      const trick = pickTrick(pool, excl);
+      if (trick && !usedThisCombo.has(trick.id)) {
+        usedThisCombo.add(trick.id);
+        comboSetup.push({ ...trick, category: chosenCat });
+      }
+    }
+  }
+
+  const comboTricks = [...comboSetup];
+  if (obstacleTrick) comboTricks.push(obstacleTrick);
+  return comboTricks;
+}
+
+function timeAgo(date) {
+  const s = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (s < 5) return "ahora mismo";
+  if (s < 60) return `hace ${s}s`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `hace ${m}min`;
+  const h = Math.floor(m / 60);
+  return `hace ${h}h`;
+}
+
+/* ------------------------------------------------------------------ */
+/* ICONOS de categoría, hechos a mano                                  */
+/* ------------------------------------------------------------------ */
+function CategoryGlyph({ type }) {
+  const common = { width: 26, height: 26, viewBox: "0 0 26 26", fill: "none" };
+  if (type === "flatground") {
+    return (
+      <svg {...common}>
+        <line x1="3" y1="20" x2="23" y2="20" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+        <path d="M6 20 L11 12 L15 15 L20 6" stroke="currentColor" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+        <circle cx="20" cy="6" r="2" fill="currentColor" />
+      </svg>
+    );
+  }
+  if (type === "flips") {
+    return (
+      <svg {...common}>
+        <path d="M20 8a7 7 0 1 0 1.5 7" stroke="currentColor" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+        <path d="M21.5 4v5h-5" stroke="currentColor" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+  if (type === "grinds") {
+    return (
+      <svg {...common}>
+        <line x1="2" y1="9" x2="24" y2="9" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+        <line x1="6" y1="9" x2="6" y2="20" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+        <line x1="13" y1="9" x2="13" y2="17" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+        <line x1="20" y1="9" x2="20" y2="20" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+      </svg>
+    );
+  }
+  // slides
+  return (
+    <svg {...common}>
+      <line x1="2" y1="8" x2="24" y2="8" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+      <rect x="5" y="14" width="16" height="4" rx="2" stroke="currentColor" strokeWidth="2.5" />
+    </svg>
+  );
+}
+
+function DeckLogo() {
+  return (
+    <svg width="42" height="42" viewBox="0 0 44 44" fill="none">
+      <rect x="3" y="15" width="38" height="14" rx="7" fill="var(--yellow)" />
+      <circle cx="10" cy="29" r="3.2" fill="#111" />
+      <circle cx="34" cy="29" r="3.2" fill="#111" />
+      {[...Array(5)].map((_, row) =>
+        [...Array(9)].map((_, col) => (
+          <circle
+            key={`${row}-${col}`}
+            cx={7 + col * 3.6}
+            cy={18 + row * 2.2}
+            r="0.55"
+            fill="#111"
+            opacity="0.55"
+          />
+        ))
+      )}
+    </svg>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* APP                                                                 */
+/* ------------------------------------------------------------------ */
+function App() {
+  const [trickData, setTrickData] = useState(INITIAL_TRICK_DATA);
+  const [selectedCategories, setSelectedCategories] = useState([]);
+  const [difficulty, setDifficulty] = useState("medium");
+  const [currentCombo, setCurrentCombo] = useState(null);
+  const [history, setHistory] = useState([]);
+  const [recentIds, setRecentIds] = useState([]);
+  const [error, setError] = useState("");
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [addFormOpenFor, setAddFormOpenFor] = useState(null);
+  const [newTrickName, setNewTrickName] = useState("");
+  const [newTrickDiff, setNewTrickDiff] = useState(1);
+
+  function toggleCategory(key) {
+    setError("");
+    setSelectedCategories((prev) =>
+      prev.includes(key) ? prev.filter((c) => c !== key) : [...prev, key]
+    );
+  }
+
+  function handleGenerate() {
+    if (selectedCategories.length === 0) {
+      setError("Selecciona al menos una categoría para generar un reto.");
+      return;
+    }
+    const comboTricks = buildCombo(trickData, selectedCategories, difficulty, recentIds);
+    if (comboTricks.length === 0) {
+      setError("No hay suficientes trucos en esas categorías todavía. Añade alguno.");
+      return;
+    }
+    setError("");
+    const usedIds = comboTricks.map((t) => t.id);
+    setRecentIds((prev) => [...usedIds, ...prev].slice(0, RECENT_POOL_SIZE));
+
+    const comboObj = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      tricks: comboTricks,
+      difficulty,
+      timestamp: new Date(),
+    };
+    setCurrentCombo(comboObj);
+    setHistory((prev) => [comboObj, ...prev].slice(0, 50));
+    setIsGenerating(true);
+    setTimeout(() => setIsGenerating(false), 550);
+  }
+
+  function handleDeleteHistoryItem(id) {
+    setHistory((prev) => prev.filter((h) => h.id !== id));
+  }
+
+  function handleClearHistory() {
+    setHistory([]);
+    setShowClearConfirm(false);
+  }
+
+  function handleAddTrick(categoryKey) {
+    if (!newTrickName.trim()) return;
+    const id = `${categoryKey}-custom-${Date.now()}`;
+    setTrickData((prev) => ({
+      ...prev,
+      [categoryKey]: {
+        ...prev[categoryKey],
+        tricks: [...prev[categoryKey].tricks, { id, name: newTrickName.trim(), difficulty: newTrickDiff, custom: true }],
+      },
+    }));
+    setNewTrickName("");
+    setNewTrickDiff(1);
+    setAddFormOpenFor(null);
+  }
+
+  function handleDeleteCustomTrick(categoryKey, trickId) {
+    setTrickData((prev) => ({
+      ...prev,
+      [categoryKey]: {
+        ...prev[categoryKey],
+        tricks: prev[categoryKey].tricks.filter((t) => t.id !== trickId),
+      },
+    }));
+  }
+
+  return (
+    <div className="app-shell">
+      <div className="container">
+        {/* HEADER */}
+        <header className="header">
+          <div className="brand">
+            <DeckLogo />
+            <div>
+              <h1>SKATE TRICK <span>GENERATOR</span></h1>
+              <small>ENTRENA · GENERA · TIRA EL RETO</small>
+            </div>
+          </div>
+        </header>
+
+        <div className="layout">
+          {/* MAIN */}
+          <main>
+            {/* CATEGORÍAS */}
+            <section className="block">
+              <div className="block-title">1. Elige categorías</div>
+              <div className="category-grid">
+                {CATEGORY_ORDER.map((key) => {
+                  const cat = trickData[key];
+                  const selected = selectedCategories.includes(key);
+                  return (
+                    <div key={key}>
+                      <button
+                        type="button"
+                        className={`category-card${selected ? " selected" : ""}`}
+                        onClick={() => toggleCategory(key)}
+                        aria-pressed={selected}
+                      >
+                        {selected && (
+                          <span className="check-badge">
+                            <IconCheck size={13} strokeWidth={3} />
+                          </span>
+                        )}
+                        <div className="glyph"><CategoryGlyph type={key} /></div>
+                        <div className="name">{cat.label}</div>
+                        <div className="sub">{cat.sub}</div>
+                        <div className="count">{cat.tricks.length} TRUCOS</div>
+                      </button>
+
+                      {addFormOpenFor === key ? (
+                        <div className="add-trick-form">
+                          <div className="row">
+                            <input
+                              placeholder="Nombre del truco"
+                              value={newTrickName}
+                              onChange={(e) => setNewTrickName(e.target.value)}
+                              autoFocus
+                            />
+                            <select
+                              value={newTrickDiff}
+                              onChange={(e) => setNewTrickDiff(Number(e.target.value))}
+                            >
+                              <option value={1}>Fácil</option>
+                              <option value={2}>Medio</option>
+                              <option value={3}>Difícil</option>
+                            </select>
+                          </div>
+                          <div className="actions">
+                            <button className="btn-small confirm" onClick={() => handleAddTrick(key)}>Añadir</button>
+                            <button className="btn-small cancel" onClick={() => { setAddFormOpenFor(null); setNewTrickName(""); }}>Cancelar</button>
+                          </div>
+                          {cat.tricks.some((t) => t.custom) && (
+                            <div>
+                              {cat.tricks.filter((t) => t.custom).map((t) => (
+                                <span className="custom-trick-tag" key={t.id}>
+                                  {t.name}
+                                  <button onClick={() => handleDeleteCustomTrick(key, t.id)} aria-label={`Eliminar ${t.name}`}>
+                                    <IconX size={11} />
+                                  </button>
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <button className="add-trick-toggle" onClick={() => setAddFormOpenFor(key)}>
+                          <IconPlus size={12} /> Añadir truco
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+
+            {/* DIFICULTAD */}
+            <section className="block">
+              <div className="block-title">2. Nivel de reto</div>
+              <div className="difficulty-row">
+                {Object.entries(DIFFICULTY_CONFIG).map(([key, cfg]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    className={`difficulty-pill${difficulty === key ? " selected" : ""}`}
+                    onClick={() => setDifficulty(key)}
+                  >
+                    <div className="d-label">{cfg.label}</div>
+                    <div className="d-sub">{cfg.sub} · {cfg.components} truco{cfg.components > 1 ? "s" : ""}</div>
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            {/* GENERAR */}
+            <div className="generate-wrap">
+              <button className="generate-btn" onClick={handleGenerate}>
+                Generate Trick
+              </button>
+              {error && (
+                <div className="error-text"><IconAlert size={13} /> {error}</div>
+              )}
+            </div>
+
+            {/* RESULTADO */}
+            {currentCombo ? (
+              <div className={`trick-ticket${isGenerating ? " pop" : ""}`}>
+                <div className="ticket-top">
+                  <span>Reto generado</span>
+                  <span className="ticket-difficulty">{DIFFICULTY_CONFIG[currentCombo.difficulty].label}</span>
+                </div>
+                <div className="combo-line">
+                  {currentCombo.tricks.map((t, i) => (
+                    <React.Fragment key={t.id + i}>
+                      {i > 0 && <span className="arrow">→</span>}
+                      <span>
+                        {t.name}
+                        <span className="trick-cat">{trickData[t.category]?.label}</span>
+                      </span>
+                    </React.Fragment>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="empty-ticket">
+                Selecciona categorías y pulsa GENERATE TRICK para recibir tu primer reto.
+              </div>
+            )}
+          </main>
+
+          {/* HISTORY */}
+          <aside className="history-panel">
+            <div className="history-header">
+              <h2>Trick History</h2>
+              <span className="history-count">{history.length}</span>
+            </div>
+            <div className="history-list">
+              {history.length === 0 ? (
+                <div className="history-empty">Aún no hay retos generados.</div>
+              ) : (
+                history.map((h) => (
+                  <div className="history-item" key={h.id}>
+                    <div className="h-text">
+                      <div className="h-combo">{h.tricks.map((t) => t.name).join(" → ")}</div>
+                      <div className="h-meta">{DIFFICULTY_CONFIG[h.difficulty].label} · {timeAgo(h.timestamp)}</div>
+                    </div>
+                    <button className="del" onClick={() => handleDeleteHistoryItem(h.id)} aria-label="Eliminar del historial">
+                      <IconX size={15} />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+            <button className="clear-history-btn" onClick={() => setShowClearConfirm(true)} disabled={history.length === 0}>
+              <IconTrash size={13} /> Clear History
+            </button>
+          </aside>
+        </div>
+      </div>
+
+      {showClearConfirm && (
+        <div className="modal-overlay" onClick={() => setShowClearConfirm(false)}>
+          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+            <div className="icon-wrap"><IconAlert size={20} /></div>
+            <h3>¿Borrar historial?</h3>
+            <p>Esta acción eliminará todos los retos guardados. No se puede deshacer.</p>
+            <div className="modal-actions">
+              <button className="btn-cancel" onClick={() => setShowClearConfirm(false)}>Cancelar</button>
+              <button className="btn-danger" onClick={handleClearHistory}>Borrar</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(<App />);
+</script>
+</body>
+</html>
